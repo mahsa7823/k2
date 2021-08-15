@@ -134,9 +134,10 @@ template void CreateSuffixArray(const int16_t* text, int16_t n,
 
 
 // This implements Kasai's algorithm, as summarized here
-// https://people.csail.mit.edu/jshun/lcp.pdf
+// https://people.csail.mit.edu/jshun/lcp.pdf (Fig. 3)
 // (Note: there seem to be some wrong implementations of
 // Kasai's algorithm online).
+/*
 template <typename T>
 void CreateLcpArray(const T *array,
                     const T *suffix_array,
@@ -164,6 +165,46 @@ void CreateLcpArray(const T *array,
         --k;
     }
   }
+}
+*/
+
+
+// This implements a modification of Kasai's algorithm by Karkkainen et al.,
+// as summarized in https://people.csail.mit.edu/jshun/lcp.pdf (Fig. 4).
+// The result is identical to Kasai's but is shown to be faster in practice.
+// (Note: pseudocodes in Fig 3. and Fig 4. generate slightly different results.
+// Here we slightly modified Fig 4. algorithm to get identical results as
+// Fig 3 (Kasai's algorithm).)
+template <typename T>
+void CreateLcpArray(const T *array,
+                    const T *suffix_array,
+                    T seq_len,
+                    T *lcp_array) {
+  Array1<T> plcp(GetCpuContext(), seq_len);
+  T *plcp_data = plcp.Data();
+  
+  Array1<T> phi(GetCpuContext(), seq_len); // the Phi array
+  T *phi_data = phi.Data();
+  phi_data[suffix_array[0]] = -1;
+  for (T i = 1; i < seq_len; i++)
+    phi_data[suffix_array[i]] = suffix_array[i-1];
+
+  T k = 0;
+
+  for (T i = 0; i < seq_len; i++) {
+    if (phi_data[i] == -1)
+      k = 0;
+    else {
+      while (array[i + k] == array[phi_data[i] + k])
+        k++;
+    }
+    plcp_data[i] = k;
+    if (k > 0)
+      k--;
+  }
+
+  for (T i = 0; i < seq_len; i++)
+    lcp_array[i] = plcp_data[suffix_array[i]];
 }
 
 // Instantiate template for int32_t and int16_t
